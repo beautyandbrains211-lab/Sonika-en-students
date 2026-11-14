@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sonika.en students</title>
+<style>
+:root{
+  --bg:#D6D6D1;--card:#fff;--text:#09090B;--muted:#66665F;
+  --accent:#09090B;--accent2:#F1E2E6;--petal:#DBAEBB;--fern:#8F9951;
+  --green:#687334;--greenbg:#EEF0E4;--yellow:#7B6830;--yellowbg:#F4F0DF;
+  --red:#9A5664;--redbg:#F4E5E9;--border:#C9C9C2;
+  --shadow:0 10px 30px rgba(9,9,11,.08);--radius:20px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+button,input,select{font:inherit}
+.app{display:flex;min-height:100vh}
+.sidebar{width:245px;background:#fff;border-right:1px solid var(--border);padding:26px 16px;position:fixed;inset:0 auto 0 0}
+.logo{font-size:21px;font-weight:800;padding:0 12px 28px}.logo span{color:var(--petal)}
+.nav button{width:100%;border:0;background:none;text-align:left;padding:12px 14px;border-radius:12px;margin:3px 0;color:#66636e;cursor:pointer}
+.nav button.active,.nav button:hover{background:var(--accent2);color:var(--accent);font-weight:700}
+.main{margin-left:245px;width:calc(100% - 245px);padding:32px;max-width:1500px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
+.profile{background:#fff;padding:9px 14px;border-radius:30px;border:1px solid var(--border);display:flex;gap:9px;align-items:center}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--accent2);display:grid;place-items:center}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+.metric{font-size:27px;font-weight:800;margin-top:8px}.label{color:var(--muted);font-size:14px}
+.grid{display:grid;grid-template-columns:1.4fr .8fr;gap:20px}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px}
+.section-head h2{font-size:19px;margin:0}
+.btn{border:0;background:var(--accent);color:#fff;padding:11px 16px;border-radius:12px;font-weight:700;cursor:pointer}
+.btn.secondary{background:#F1E2E6;color:#09090B}.btn.fern{background:var(--fern);color:#fff}.btn.small{padding:8px 11px;font-size:13px}
+.students{display:grid;gap:10px}
+.student{display:flex;align-items:center;justify-content:space-between;padding:14px;border:1px solid var(--border);border-radius:15px;gap:12px}
+.student-left{display:flex;align-items:center;gap:12px}.student-avatar{width:42px;height:42px;border-radius:13px;background:#F1E2E6;display:grid;place-items:center;font-weight:800;color:#09090B}
+.name{font-weight:700}.meta{font-size:13px;color:var(--muted);margin-top:3px}
+.status{font-size:12px;padding:6px 9px;border-radius:20px;font-weight:700}.green{background:var(--greenbg);color:var(--green)}.yellow{background:var(--yellowbg);color:var(--yellow)}.red{background:var(--redbg);color:var(--red)}
+.balance{font-weight:800;margin-right:10px}
+.activity{display:grid;gap:12px}.activity-item{padding:12px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between}
+.page{display:none}.page.active{display:block}
+.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:14px 10px;border-bottom:1px solid var(--border);font-size:14px}.table th{color:var(--muted);font-weight:600}
+.modal{position:fixed;inset:0;background:rgba(9,9,11,.4);display:none;align-items:center;justify-content:center;padding:20px;z-index:5}.modal.show{display:flex}
+.modal-box{background:#fff;border-radius:22px;padding:24px;width:min(620px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.modal-head{display:flex;justify-content:space-between;align-items:center}.close{border:0;background:#F1E2E6;width:35px;height:35px;border-radius:50%;cursor:pointer}
+.form{display:grid;gap:12px;margin-top:18px}.form label{font-size:13px;color:var(--muted);display:block;margin-bottom:5px}.form input,.form select{width:100%;padding:12px;border:1px solid var(--border);border-radius:11px;outline:none;background:#fff}.form input:focus,.form select:focus{border-color:var(--petal)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+.login{min-height:100vh;display:grid;place-items:center;background:linear-gradient(135deg,#D6D6D1,#F1E2E6)}
+.login-box{background:#fff;width:min(420px,calc(100% - 30px));padding:32px;border-radius:25px;box-shadow:var(--shadow)}.login-logo{text-align:center;font-size:25px;font-weight:800}.login-box h2{margin-bottom:5px}.login-note{font-size:13px;color:var(--muted);line-height:1.5;margin:18px 0}
+.portal{max-width:900px;margin:auto}.portal-hero{background:linear-gradient(135deg,#09090B,#DBAEBB);color:#fff;border-radius:24px;padding:28px;margin-bottom:18px}.portal-balance{font-size:42px;font-weight:800;margin:8px 0}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.info-box{padding:15px;background:#F8F8F6;border-radius:15px}.info-box b{display:block;margin-top:5px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.chip{padding:7px 10px;border-radius:20px;background:#F1E2E6;font-size:12px}
+.notice{padding:13px 15px;border-radius:14px;background:#F1E2E6;margin:14px 0;font-size:14px;line-height:1.45}
+@media(max-width:900px){.sidebar{width:76px}.logo{font-size:0}.logo span{font-size:20px}.nav button{font-size:0;text-align:center}.nav button::first-letter{font-size:20px}.main{margin-left:76px;width:calc(100% - 76px);padding:20px}.cards{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:600px){.top{align-items:flex-start}.cards{grid-template-columns:1fr 1fr}.metric{font-size:22px}.student .balance{display:none}.form-grid,.detail-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="login" class="login">
+  <div class="login-box">
+    <div class="login-logo">Sonika<span style="color:#DBAEBB">.en students</span></div>
+    <h2>Добро пожаловать 👋</h2>
+    <div class="subtitle">Кабинет преподавателя</div>
+    <div class="form">
+      <div><label>Email</label><input id="loginField" type="email" placeholder="name@mail.com"></div>
+      <div><label>Пароль</label><input id="password" type="password" placeholder="••••••••"></div>
+      <div id="codeRow" style="display:none"><label>Код от преподавателя</label><input id="linkCode" placeholder="Например, a1b2c3d4"></div>
+      <div id="loginErr" class="notice" style="display:none"></div>
+      <button class="btn" id="loginBtn" onclick="doLogin()">Войти</button>
+      <button class="btn secondary" id="signupToggle" onclick="toggleSignup()">Я ученик — создать аккаунт</button>
+    </div>
+    <p class="login-note" id="loginNote"></p>
+  </div>
+</div>
+
+<div id="app" class="app" style="display:none">
+  <aside class="sidebar">
+    <div class="logo">Sonika<span>.en students</span></div>
+    <nav class="nav">
+      <button class="active" onclick="showPage('dashboard',this)">🏠 Главная</button>
+      <button onclick="showPage('students',this)">👩‍🎓 Ученики</button>
+      <button onclick="showPage('payments',this)">💳 Оплаты</button>
+      <button onclick="showPage('lessons',this)">📅 Занятия</button>
+      <button onclick="showPage('settings',this)">⚙️ Настройки</button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="top">
+      <div><h1 id="pageTitle">Главная</h1><div class="subtitle">Оплаты, расписание и занятия</div></div>
+      <div class="profile"><div class="avatar">С</div><b>София</b></div>
+    </div>
+
+    <section id="dashboard" class="page active">
+      <div class="cards">
+        <div class="card"><div class="label">Ученики</div><div class="metric" id="mStudents">4</div></div>
+        <div class="card"><div class="label">Баланс учеников</div><div class="metric" id="mBalance">0 BYN</div></div>
+        <div class="card"><div class="label">Доход за месяц</div><div class="metric" id="mIncome">0 BYN</div></div>
+        <div class="card"><div class="label">Нужно оплатить</div><div class="metric" id="mNeed">0</div></div>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <div class="section-head"><h2>Ученики</h2><button class="btn small" onclick="openStudent()">+ Добавить</button></div>
+          <div class="students" id="studentList"></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>Ближайшие занятия</h2></div>
+          <div class="activity" id="upcoming"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="students" class="page">
+      <div class="card">
+        <div class="section-head"><h2>Все ученики</h2><button class="btn" onclick="openStudent()">+ Новый ученик</button></div>
+        <div class="students" id="studentList2"></div>
+      </div>
+    </section>
+
+    <section id="payments" class="page">
+      <div class="card">
+        <div class="section-head"><h2>Оплаты</h2><button class="btn" onclick="openPayment()">+ Добавить оплату</button></div>
+        <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Сумма</th><th>Комментарий</th></tr></thead><tbody id="paymentRows"></tbody></table>
+      </div>
+    </section>
+
+    <section id="lessons" class="page">
+      <div class="card">
+        <div class="section-head"><h2>Расписание и занятия</h2><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="genBtn" style="display:none" onclick="genLessons()">Создать занятия на 2 недели</button><button class="btn" onclick="openSchedule()">+ Настроить расписание</button></span></div>
+        <div class="notice">Расписание хранится отдельно у каждого ученика: день недели, время, часовой пояс и длительность. Позже эти данные будут синхронизироваться с календарём и Telegram-ботом.</div>
+        <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Время</th><th>Стоимость</th><th>Статус</th><th></th></tr></thead><tbody id="lessonRows"></tbody></table>
+      </div>
+    </section>
+
+    <section id="settings" class="page">
+      <div class="card">
+        <h2>Настройки</h2>
+        <div class="form">
+          <div class="form-grid">
+            <div><label>Основная валюта</label><select id="currency" onchange="setCurrency(this.value)"><option value="BYN">BYN — белорусский рубль</option><option value="RUB">RUB — российский рубль</option></select></div>
+            <div><label>Часовой пояс преподавателя</label><select id="teacherTz"><option>Europe/Minsk</option><option>Europe/Moscow</option><option>Europe/Berlin</option></select></div>
+          </div>
+          <div class="notice">Важно: токен Telegram-бота и ключи Supabase не будут храниться в HTML-коде. Для будущей интеграции будет отдельный защищённый серверный слой / Edge Functions.</div>
+          <button class="btn secondary" onclick="logout()">Выйти из демо</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="portal" style="display:none;padding:20px"></div>
+
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2 id="modalTitle">Новый ученик</h2><button class="close" onclick="closeModal()">×</button></div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<script>
+/*
+  SONIKA.EN STUDENTS — data model prepared for future Supabase + Telegram + Calendar.
+
+  IMPORTANT:
+  - Never put a Telegram bot token in this file.
+  - Never put Supabase service_role key in this file.
+  - Future backend records should use stable UUIDs:
+      students.id
+      payments.student_id
+      lessons.student_id
+      schedules.student_id
+      calendar_events.student_id
+  - telegram_chat_id is filled only after a student starts the bot / links the account.
+  - calendar_event_id stores the external calendar event identifier.
+*/
+
+/* ПОДКЛЮЧЕНИЕ К SUPABASE. Вставьте Project URL и ключ "anon public" (он безопасен для браузера).
+   Пока поля пустые — работает демо без сохранения. service_role и токен бота сюда НЕЛЬЗЯ. */
+const CFG={url:"https://gyzjeclzvekamnavigad.supabase.co",anonKey:"sb_publishable_O53c0vHXFxfbrFkwUwHj7w_ntWzAaSu"};
+const live=!!(CFG.url&&CFG.anonKey&&window.supabase);
+const db=live?supabase.createClient(CFG.url,CFG.anonKey):null;
+
+let settings = {
+  currency: localStorage.getItem("sonika_currency") || "BYN",
+  teacherTimezone: localStorage.getItem("sonika_timezone") || "Europe/Minsk"
+};
+
+let students = [
+ {id:"st_anna",name:"Анна",telegram:"@anna_example",price:35,balance:105,timezone:"Europe/Minsk",duration:60,
+  schedule:[{day:1,time:"18:00"}],status:"green",next:"Пн · 18:00",telegramChatId:null,calendarEventId:null},
+ {id:"st_maria",name:"Мария",telegram:"@maria_example",price:40,balance:40,timezone:"Europe/Moscow",duration:60,
+  schedule:[{day:3,time:"19:00"}],status:"yellow",next:"Ср · 19:00",telegramChatId:null,calendarEventId:null},
+ {id:"st_katya",name:"Катя",telegram:"@katya_example",price:35,balance:0,timezone:"Europe/Minsk",duration:60,
+  schedule:[{day:5,time:"17:00"}],status:"red",next:"Пт · 17:00",telegramChatId:null,calendarEventId:null},
+ {id:"st_liza",name:"Лиза",telegram:"@liza_example",price:35,balance:70,timezone:"Europe/Minsk",duration:60,
+  schedule:[{day:6,time:"12:00"}],status:"green",next:"Сб · 12:00",telegramChatId:null,calendarEventId:null}
+];
+
+let payments = [
+ {date:"14.11.2026",name:"Анна",studentId:"st_anna",amount:105,note:"3 занятия вперёд"},
+ {date:"13.11.2026",name:"Лиза",studentId:"st_liza",amount:70,note:"2 занятия"},
+ {date:"10.11.2026",name:"Мария",studentId:"st_maria",amount:80,note:"2 занятия"}
+];
+
+let lessons = [
+ {date:"16.11.2026",name:"Анна",studentId:"st_anna",time:"18:00",price:35,status:"Запланировано"},
+ {date:"18.11.2026",name:"Мария",studentId:"st_maria",time:"19:00",price:40,status:"Запланировано"},
+ {date:"20.11.2026",name:"Катя",studentId:"st_katya",time:"17:00",price:35,status:"Нужна оплата"}
+];
+
+if(live){students=[];payments=[];lessons=[]}
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DN=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
+const fail=e=>{const m=document.getElementById("modalContent");let n=document.getElementById("modalErr");if(!n){n=document.createElement("div");n.id="modalErr";n.className="notice";m.prepend(n)}n.textContent="Не сохранилось: "+e.message};
+
+async function load(){
+  const r=await Promise.all([db.from("students").select("*").neq("status","archived").order("name"),db.from("schedules").select("*").eq("active",true),
+    db.from("payments").select("*").order("payment_date",{ascending:false}),db.from("lessons").select("*").eq("status","scheduled").order("scheduled_at")]);
+  const bad=r.find(x=>x.error);if(bad)throw bad.error;
+  const [st,sc,pa,le]=r.map(x=>x.data);
+  students=st.map(s=>{const sch=sc.filter(x=>x.student_id===s.id).map(x=>({day:x.weekday,time:x.start_time.slice(0,5)}));
+    return{id:s.id,name:esc(s.name),telegram:esc(s.telegram_username||""),price:+s.price,balance:+s.balance,timezone:s.timezone,duration:s.duration,
+      schedule:sch,next:sch[0]?DN[sch[0].day]+" · "+sch[0].time:"—",telegramChatId:s.telegram_chat_id,linkCode:s.link_code}});
+  const nm=Object.fromEntries(students.map(s=>[s.id,s.name]));
+  payments=pa.map(p=>({date:new Date(p.payment_date).toLocaleDateString("ru-RU"),name:nm[p.student_id]||"",studentId:p.student_id,amount:+p.amount,note:esc(p.comment||"")}));
+  lessons=le.filter(l=>nm[l.student_id]).map(l=>{const d=new Date(l.scheduled_at);return{id:l.id,date:d.toLocaleDateString("ru-RU"),name:nm[l.student_id],studentId:l.student_id,
+    time:d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}),price:+l.price,status:"Запланировано"}});
+}
+async function setSchedule(sid,day,time,tz,duration){
+  await db.from("schedules").delete().eq("student_id",sid);
+  const a=await db.from("schedules").insert({student_id:sid,weekday:day,start_time:time,duration,timezone:tz});if(a.error)throw a.error;
+  const b=await db.from("students").update({timezone:tz}).eq("id",sid);if(b.error)throw b.error;
+}
+async function archiveStudent(id){if(!confirm("Архивировать ученика? Он исчезнет из списка, история сохранится."))return;try{const r=await db.from("students").update({status:"archived"}).eq("id",id);if(r.error)throw r.error;await load();closeModal();render()}catch(e){fail(e)}}
+async function genLessons(){try{const r=await db.rpc("generate_lessons",{days_ahead:14});if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
+async function doneLesson(id){try{const r=await db.from("lessons").update({status:"completed"}).eq("id",id);if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
+
+function setErr(m){const e=document.getElementById("loginErr");e.textContent=m;e.style.display=m?"block":"none"}
+function toggleSignup(){const r=document.getElementById("codeRow"),on=r.style.display==="none";r.style.display=on?"block":"none";
+  document.getElementById("loginBtn").textContent=on?"Создать аккаунт":"Войти";
+  document.getElementById("signupToggle").textContent=on?"У меня уже есть аккаунт":"Я ученик — создать аккаунт";setErr("")}
+async function doLogin(){
+  if(!live){demoLogin();return}
+  const email=document.getElementById("loginField").value.trim(),pw=document.getElementById("password").value;
+  const reg=document.getElementById("codeRow").style.display!=="none",btn=document.getElementById("loginBtn"),label=btn.textContent;
+  btn.disabled=true;btn.textContent="Загрузка…";setErr("");
+  try{
+    if(reg){const code=document.getElementById("linkCode").value.trim();
+      if(!code)throw new Error("Введите код, который дал преподаватель.");
+      const r=await db.auth.signUp({email,password:pw,options:{data:{link_code:code}}});if(r.error)throw r.error;
+      if(!r.data.session){setErr("Мы отправили письмо. Подтвердите почту и затем войдите.");return}
+    }else{const r=await db.auth.signInWithPassword({email,password:pw});if(r.error)throw new Error("Неверный email или пароль.")}
+    await enter();
+  }catch(e){setErr(e.message)}finally{btn.disabled=false;btn.textContent=label}
+}
+async function enter(){
+  const {data:{user}}=await db.auth.getUser();if(!user)return;
+  const {data:p,error}=await db.from("profiles").select("role,name").eq("id",user.id).single();if(error)throw error;
+  if(p.role==="teacher"){await load();render();document.getElementById("genBtn").style.display="";
+    document.querySelector(".profile b").textContent=p.name||"Преподаватель";document.getElementById("app").style.display="flex"}
+  else{await loadPortal();document.getElementById("portal").style.display="block"}
+  document.getElementById("login").style.display="none";
+}
+async function loadPortal(){
+  const r=await Promise.all([db.from("students").select("*").maybeSingle(),db.from("payments").select("*").order("payment_date",{ascending:false}),
+    db.from("lessons").select("*").order("scheduled_at"),db.from("notifications").select("*").order("created_at",{ascending:false}).limit(10),db.from("schedules").select("*").eq("active",true)]);
+  const bad=r.find(x=>x.error);if(bad)throw bad.error;
+  const [s,pa,le,nt,sc]=r.map(x=>x.data),el=document.getElementById("portal");
+  if(!s){el.innerHTML='<div class="portal"><div class="card">Аккаунт пока не привязан к ученику. Попросите у преподавателя код и создайте аккаунт заново.</div><br><button class="btn secondary" onclick="logout()">Выйти</button></div>';return}
+  settings.currency=s.currency;
+  const d=x=>new Date(x).toLocaleDateString("ru-RU",{day:"numeric",month:"long"}),t=x=>new Date(x).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
+  const next=le.find(l=>l.status==="scheduled"&&new Date(l.scheduled_at)>new Date());
+  const hist=[...pa.map(p=>({d:p.payment_date,t:"оплата",v:+p.amount})),...le.filter(l=>l.status==="completed").map(l=>({d:l.scheduled_at,t:"занятие",v:-l.price}))].sort((a,b)=>new Date(b.d)-new Date(a.d));
+  el.innerHTML=`<div class="portal">
+    <div class="portal-hero"><div>Здравствуйте, ${esc(s.name)} 🌸</div><div style="opacity:.8;margin-top:14px">Ваш баланс</div>
+      <div class="portal-balance">${money(+s.balance)}</div><div>Оплачено занятий: ${s.price>0?Math.floor(s.balance/s.price):0}</div></div>
+    ${+s.balance<+s.price?'<div class="notice">Оплаченные занятия закончились. Пожалуйста, пополните баланс перед следующим занятием.</div>':""}
+    <div class="detail-grid">
+      <div class="info-box">Следующее занятие<b>${next?d(next.scheduled_at)+" · "+t(next.scheduled_at):"Пока не назначено"}</b></div>
+      <div class="info-box">Ваше расписание<b>${sc.length?sc.map(x=>DN[x.weekday]+" · "+x.start_time.slice(0,5)+", "+x.duration+" мин").join("<br>"):"Пока не задано"}</b></div></div>
+    <div class="card" style="margin-top:16px"><div class="section-head"><h2>История</h2></div><div class="activity">${hist.length?hist.map(x=>`<div class="activity-item"><span>${d(x.d)} — ${x.t}</span><b>${x.v>0?"+":"−"}${money(Math.abs(x.v))}</b></div>`).join(""):"Пока нет записей"}</div></div>
+    <div class="card" style="margin-top:16px"><div class="section-head"><h2>Уведомления</h2></div><div class="activity">${nt.length?nt.map(n=>`<div class="activity-item"><span>${esc(n.message)}</span></div>`).join(""):"Пока нет уведомлений"}</div></div>
+    <br><button class="btn secondary" onclick="logout()">Выйти</button></div>`;
+}
+
+function money(n){ return new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0}).format(n)+" "+settings.currency; }
+function initials(n){return n[0].toUpperCase()}
+function statusFor(s){return s.balance===0?"red":(s.balance<=s.price?"yellow":"green")}
+function statusText(s){return s.balance===0?"Нужна оплата":Math.floor(s.balance/s.price)+" зан."}
+
+function render(){
+  students.forEach(s=>s.status=statusFor(s));
+  const html=students.map(s=>`
+    <div class="student">
+      <div class="student-left" style="cursor:pointer" onclick="editStudent('${s.id}')">
+        <div class="student-avatar">${initials(s.name)}</div>
+        <div><div class="name">${s.name}</div><div class="meta">${s.telegram} · ${s.next} · ${money(s.price)}/занятие</div></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="balance">${money(s.balance)}</span>
+        <span class="status ${s.status}">${statusText(s)}</span>
+        <button class="btn small secondary" onclick="editStudent('${s.id}')">Изменить</button>
+      </div>
+    </div>`).join("");
+  document.getElementById("studentList").innerHTML=html;
+  document.getElementById("studentList2").innerHTML=html;
+
+  const total=students.reduce((a,s)=>a+s.balance,0);
+  const mo=new Date().toLocaleDateString("ru-RU").slice(3);const income=payments.filter(p=>p.date.slice(3)===mo).reduce((a,p)=>a+p.amount,0);
+  const need=students.filter(s=>s.balance===0).length;
+  document.getElementById("mStudents").textContent=students.length;
+  document.getElementById("mBalance").textContent=money(total);
+  document.getElementById("mIncome").textContent=money(income);
+  document.getElementById("mNeed").textContent=need;
+
+  document.getElementById("paymentRows").innerHTML=payments.map(p=>`
+    <tr><td>${p.date}</td><td>${p.name}</td><td><b>+${money(p.amount)}</b></td><td>${p.note}</td></tr>`).join("");
+
+  document.getElementById("lessonRows").innerHTML=lessons.map(l=>`
+    <tr><td>${l.date}</td><td>${l.name}</td><td>${l.time}</td><td>${money(l.price)}</td>
+    <td><span class="status ${l.status==="Оплачено"?"green":l.status==="Нужна оплата"?"red":"yellow"}">${l.status}</span></td><td>${l.id?`<button class="btn small fern" onclick="doneLesson('${l.id}')">Проведено</button>`:""}</td></tr>`).join("");
+
+  document.getElementById("upcoming").innerHTML=lessons.slice(0,4).map(l=>`
+    <div class="activity-item"><span>📅 ${l.name}<br><small>${l.date} · ${l.time}</small></span><b>${money(l.price)}</b></div>`).join("");
+
+  document.getElementById("currency").value=settings.currency;
+  document.getElementById("teacherTz").value=settings.teacherTimezone;
+}
+
+function demoLogin(){document.getElementById("login").style.display="none";document.getElementById("app").style.display="flex";render()}
+async function logout(){if(live)await db.auth.signOut();document.getElementById("app").style.display="none";document.getElementById("portal").style.display="none";document.getElementById("login").style.display="grid"}
+
+function showPage(id,btn){
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");
+  document.getElementById("pageTitle").textContent=({dashboard:"Главная",students:"Ученики",payments:"Оплаты",lessons:"Расписание и занятия",settings:"Настройки"})[id];
+}
+
+function openStudent(id=null){
+  const s=id?students.find(x=>x.id===id):null;
+  document.getElementById("modalTitle").textContent=s?"Изменить ученика":"Добавить ученика";
+  const schedule = s?.schedule?.[0] || {day:1,time:"18:00"};
+  document.getElementById("modalContent").innerHTML=`
+    <div class="form">
+      <div class="form-grid">
+        <div><label>Имя ученика</label><input id="stName" value="${s?.name||""}" placeholder="Имя и фамилия"></div>
+        <div><label>Telegram ученика</label><input id="stTelegram" value="${s?.telegram||""}" placeholder="@username"></div>
+      </div>
+      <div class="form-grid">
+        <div><label>Стоимость занятия (${settings.currency})</label><input id="stPrice" type="number" value="${s?.price||35}"></div>
+        <div><label>Часовой пояс ученика</label><select id="stTz">
+          ${["Europe/Minsk","Europe/Moscow","Europe/Berlin"].map(t=>`<option ${t===(s?.timezone||settings.teacherTimezone)?"selected":""}>${t}</option>`).join("")}
+        </select></div>
+      </div>
+      <div class="form-grid">
+        <div><label>День недели</label><select id="stDay">
+          ${["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"].map((d,i)=>`<option value="${i}" ${Number(schedule.day)===i?"selected":""}>${d}</option>`).join("")}
+        </select></div>
+        <div><label>Время занятия</label><input id="stTime" type="time" value="${schedule.time||"18:00"}"></div>
+      </div>
+      <div class="form-grid">
+        <div><label>Длительность (минут)</label><input id="stDuration" type="number" value="${s?.duration||60}"></div>
+        <div><label>Баланс (${settings.currency})</label><input id="stBalance" type="number" value="${s?.balance||0}" ${live&&s?"disabled":""}></div>
+      </div>
+      <div class="notice">${live&&s?`Telegram: <b>${s.telegramChatId?"подключён ✅":"не подключён"}</b>. Код ученика для аккаунта и бота: <b>${s.linkCode}</b>`:"Код для подключения аккаунта и Telegram появится после сохранения ученика."}</div>
+      <div class="form-actions">${live&&s?`<button class="btn secondary" style="margin-right:auto" onclick="archiveStudent('${id}')">Архивировать</button>`:""}<button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveStudent('${id||""}')">Сохранить</button></div>
+    </div>`;
+  document.getElementById("modal").classList.add("show");
+}
+
+async function saveStudent(id){
+  const name=document.getElementById("stName").value.trim()||"Новый ученик";
+  const telegram=document.getElementById("stTelegram").value.trim();
+  const price=Number(document.getElementById("stPrice").value)||0;
+  const timezone=document.getElementById("stTz").value;
+  const day=Number(document.getElementById("stDay").value);
+  const time=document.getElementById("stTime").value;
+  const duration=Number(document.getElementById("stDuration").value)||60;
+  const balance=Number(document.getElementById("stBalance").value)||0;
+  if(live){try{
+    const row={name,telegram_username:telegram,price,timezone,duration};let sid=id;
+    if(id){const r=await db.from("students").update(row).eq("id",id);if(r.error)throw r.error}
+    else{const r=await db.from("students").insert({...row,currency:settings.currency}).select().single();if(r.error)throw r.error;sid=r.data.id;
+      if(balance>0){const p=await db.from("payments").insert({student_id:sid,amount:balance,comment:"Начальный баланс"});if(p.error)throw p.error}}
+    await setSchedule(sid,day,time,timezone,duration);await load();closeModal();render();return}catch(e){fail(e);return}}
+  const dayNames=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
+  if(id){
+    const s=students.find(x=>x.id===id);
+    Object.assign(s,{name,telegram,price,timezone,duration,balance,schedule:[{day,time}],next:`${dayNames[day]} · ${time}`});
+  }else{
+    const newId="st_"+Date.now();
+    students.push({id:newId,name,telegram,price,timezone,duration,balance,schedule:[{day,time}],next:`${dayNames[day]} · ${time}`,status:statusFor({balance,price}),telegramChatId:null,calendarEventId:null});
+  }
+  closeModal();render();
+}
+
+function editStudent(id){openStudent(id)}
+
+function openPayment(){
+  document.getElementById("modalTitle").textContent="Добавить оплату";
+  document.getElementById("modalContent").innerHTML=`<div class="form">
+    <div><label>Ученик</label><select id="payStudent">${students.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
+    <div><label>Сумма (${settings.currency})</label><input id="payAmount" type="number" value="35"></div>
+    <div><label>Комментарий</label><input id="payNote" value="Оплата"></div>
+    <div class="form-actions"><button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="addPayment()">Сохранить</button></div>
+  </div>`;
+  document.getElementById("modal").classList.add("show");
+}
+
+async function addPayment(){
+  const id=document.getElementById("payStudent").value;
+  const s=students.find(x=>x.id===id);
+  const amount=Number(document.getElementById("payAmount").value)||0;
+  const note=document.getElementById("payNote").value||"Оплата";
+  if(live&&s){try{const r=await db.from("payments").insert({student_id:id,amount,comment:note});if(r.error)throw r.error;await load();closeModal();render();return}catch(e){fail(e);return}}
+  if(s){s.balance+=amount;s.status=statusFor(s);payments.unshift({date:new Date().toLocaleDateString("ru-RU"),name:s.name,studentId:s.id,amount,note})}
+  closeModal();render();
+}
+
+function openSchedule(){
+  document.getElementById("modalTitle").textContent="Настроить расписание";
+  document.getElementById("modalContent").innerHTML=`<div class="form">
+    <div class="notice">Выберите ученика и задайте регулярное время. В следующей версии эта запись будет создавать/обновлять событие в Google Calendar или другом календаре через защищённый backend.</div>
+    <div><label>Ученик</label><select id="schStudent">${students.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
+    <div class="form-grid"><div><label>День недели</label><select id="schDay">${["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"].map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select></div><div><label>Время</label><input id="schTime" type="time" value="18:00"></div></div>
+    <div><label>Часовой пояс</label><select id="schTz">${["Europe/Minsk","Europe/Moscow","Europe/Berlin"].map(t=>`<option>${t}</option>`).join("")}</select></div>
+    <div class="form-actions"><button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveSchedule()">Сохранить расписание</button></div>
+  </div>`;
+  document.getElementById("modal").classList.add("show");
+}
+
+async function saveSchedule(){
+  const s=students.find(x=>x.id===document.getElementById("schStudent").value);
+  const day=Number(document.getElementById("schDay").value),time=document.getElementById("schTime").value,tz=document.getElementById("schTz").value;
+  if(live&&s){try{await setSchedule(s.id,day,time,tz,s.duration);await load();closeModal();render();return}catch(e){fail(e);return}}
+  if(s){s.schedule=[{day,time}];s.timezone=tz;const days=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];s.next=`${days[day]} · ${time}`}
+  closeModal();render();
+}
+
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+
+function setCurrency(value){settings.currency=value;localStorage.setItem("sonika_currency",value);render()}
+document.getElementById("loginNote").textContent=live?"":"Демо-режим: Supabase не подключён, изменения не сохраняются. Ключи вставляются в начале скрипта (CFG).";
+if(live)db.auth.getSession().then(({data})=>{if(data.session)enter().catch(e=>setErr(e.message))});
+else document.getElementById("loginBtn").textContent="Войти в демо";
+</script>
+</body>
+</html>
