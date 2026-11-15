@@ -235,6 +235,23 @@ async function setSchedule(sid,day,time,tz,duration){
   const a=await db.from("schedules").insert({student_id:sid,weekday:day,start_time:time,duration,timezone:tz});if(a.error)throw a.error;
   const b=await db.from("students").update({timezone:tz}).eq("id",sid);if(b.error)throw b.error;
 }
+function openMessage(id){
+  const s=students.find(x=>x.id===id);
+  document.getElementById("modalTitle").textContent="Сообщение в Telegram";
+  document.getElementById("modalContent").innerHTML=`<div class="form">
+    <div class="notice">${s.telegramChatId?"Получатель: <b>"+s.name+"</b>":"У ученика пока не подключён Telegram."}</div>
+    <div><label>Что отправить</label><select id="msgKind"><option value="lesson">Напоминание о ближайшем занятии</option><option value="payment">Напоминание об оплате</option><option value="custom">Своё сообщение</option></select></div>
+    <div><label>Текст (только для «Своё сообщение»)</label><textarea id="msgText" rows="4" placeholder="Здравствуйте! …" style="width:100%;padding:13px;border-radius:14px;border:1px solid #D6D6D1;font:inherit"></textarea></div>
+    <div class="form-actions"><button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" id="msgBtn" onclick="sendMsg('${id}')">Отправить</button></div></div>`;
+  document.getElementById("modal").classList.add("show");
+}
+async function sendMsg(id){
+  const b=document.getElementById("msgBtn");b.disabled=true;b.textContent="Отправка…";
+  try{const r=await db.functions.invoke("send",{body:{student_id:id,kind:document.getElementById("msgKind").value,text:document.getElementById("msgText").value}});
+    if(r.error){let m=r.error.message;try{m=(await r.error.context.json()).error||m}catch(_){}throw new Error(m)}
+    closeModal();alert("Сообщение отправлено ✅")}
+  catch(e){fail(e);b.disabled=false;b.textContent="Отправить"}
+}
 async function archiveStudent(id){if(!confirm("Архивировать ученика? Он исчезнет из списка, история сохранится."))return;try{const r=await db.from("students").update({status:"archived"}).eq("id",id);if(r.error)throw r.error;await load();closeModal();render()}catch(e){fail(e)}}
 async function genLessons(){try{const r=await db.rpc("generate_lessons",{days_ahead:14});if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
 async function doneLesson(id){try{const r=await db.from("lessons").update({status:"completed"}).eq("id",id);if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
@@ -310,7 +327,7 @@ function render(){
   document.getElementById("studentList2").innerHTML=html;
 
   const total=students.reduce((a,s)=>a+s.balance,0);
-  const mo=new Date().toLocaleDateString("ru-RU").slice(3);const income=payments.filter(p=>p.date.slice(3)===mo).reduce((a,p)=>a+p.amount,0);
+  const mo=new Date().toLocaleDateString("ru-RU").slice(3);const income=payments.filter(p=>p.date.slice(3)===mo&&p.note!=="Корректировка баланса").reduce((a,p)=>a+p.amount,0);
   const need=students.filter(s=>s.balance===0).length;
   document.getElementById("mStudents").textContent=students.length;
   document.getElementById("mBalance").textContent=money(total);
@@ -365,10 +382,10 @@ function openStudent(id=null){
       </div>
       <div class="form-grid">
         <div><label>Длительность (минут)</label><input id="stDuration" type="number" value="${s?.duration||60}"></div>
-        <div><label>Баланс (${settings.currency})</label><input id="stBalance" type="number" value="${s?.balance||0}" ${live&&s?"disabled":""}></div>
+        <div><label>Баланс (${settings.currency})</label><input id="stBalance" type="number" value="${s?.balance||0}"></div>
       </div>
       <div class="notice">${live&&s?`Telegram: <b>${s.telegramChatId?"подключён ✅":"не подключён"}</b>. Код ученика для аккаунта и бота: <b>${s.linkCode}</b>`:"Код для подключения аккаунта и Telegram появится после сохранения ученика."}</div>
-      <div class="form-actions">${live&&s?`<button class="btn secondary" style="margin-right:auto" onclick="archiveStudent('${id}')">Архивировать</button>`:""}<button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveStudent('${id||""}')">Сохранить</button></div>
+      <div class="form-actions">${live&&s?`<button class="btn secondary" onclick="openMessage('${id}')">Написать в Telegram</button><button class="btn secondary" style="margin-right:auto" onclick="archiveStudent('${id}')">Архивировать</button>`:""}<button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveStudent('${id||""}')">Сохранить</button></div>
     </div>`;
   document.getElementById("modal").classList.add("show");
 }
@@ -384,7 +401,9 @@ async function saveStudent(id){
   const balance=Number(document.getElementById("stBalance").value)||0;
   if(live){try{
     const row={name,telegram_username:telegram,price,timezone,duration};let sid=id;
-    if(id){const r=await db.from("students").update(row).eq("id",id);if(r.error)throw r.error}
+    if(id){const old=students.find(x=>x.id===id),diff=Math.round((balance-old.balance)*100)/100;
+      const r=await db.from("students").update(row).eq("id",id);if(r.error)throw r.error;
+      if(diff){const q=await db.from("payments").insert({student_id:id,amount:diff,comment:"Корректировка баланса"});if(q.error)throw q.error}}
     else{const r=await db.from("students").insert({...row,currency:settings.currency}).select().single();if(r.error)throw r.error;sid=r.data.id;
       if(balance>0){const p=await db.from("payments").insert({student_id:sid,amount:balance,comment:"Начальный баланс"});if(p.error)throw p.error}}
     await setSchedule(sid,day,time,timezone,duration);await load();closeModal();render();return}catch(e){fail(e);return}}
