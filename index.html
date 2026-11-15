@@ -141,7 +141,7 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
     <section id="homework" class="page"><div class="card">
       <div class="section-head"><h2>Домашние задания</h2><button class="btn" onclick="openHomework()">+ Отправить задание</button></div>
       <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Задание</th></tr></thead><tbody id="hwRows"></tbody></table></div></section>
-    <section id="notices" class="page"><div class="card">
+    <section id="notices" class="page"><div id="pendingBox"></div><div class="card">
       <div class="section-head"><h2>Уведомления ученикам</h2></div>
       <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Сообщение</th><th>Статус</th></tr></thead><tbody id="ntRows"></tbody></table></div></section>
 
@@ -220,7 +220,7 @@ async function load(){
       schedule:sch,next:sch.length?sch.map(x=>DN[x.day]+" · "+x.time).join(", "):"—",telegramChatId:s.telegram_chat_id,linkCode:s.link_code,notes:esc(s.notes||"")}});
   const nm=Object.fromEntries(students.map(s=>[s.id,s.name]));
   const fd=x=>new Date(x).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
-  NT=nt.map(n=>({date:fd(n.created_at),name:nm[n.student_id]||"",msg:esc(n.message),status:({sent:"Отправлено",failed:"Не доставлено",pending:"Ожидает"})[n.status]||n.status}));
+  NT=nt.map(n=>({id:n.id,raw:n.status,date:fd(n.created_at),name:nm[n.student_id]||"",msg:esc(n.message),status:({sent:"Отправлено",failed:"Не доставлено",pending:"Ожидает",awaiting_approval:"Ждёт Вашего решения",rejected:"Отклонено"})[n.status]||n.status}));
   HW=hw.map(x=>({date:fd(x.created_at),name:nm[x.student_id]||"",text:esc(x.text||"Файлы"),n:(x.files||[]).length}));
   payments=pa.map(p=>({date:new Date(p.payment_date).toLocaleDateString("ru-RU"),name:nm[p.student_id]||"",studentId:p.student_id,amount:+p.amount,note:esc(p.comment||"")}));
   lessons=le.filter(l=>nm[l.student_id]).map(l=>{const d=new Date(l.scheduled_at);return{id:l.id,iso:l.scheduled_at,date:d.toLocaleDateString("ru-RU"),name:nm[l.student_id],studentId:l.student_id,
@@ -328,7 +328,18 @@ async function sendHomework(){
     await load();render();closeModal();alert("Отправлено: "+r.data.sent+(r.data.skipped?.length?". Не доставлено: "+r.data.skipped.join(", "):""))}
   catch(e){fail(e);btn.disabled=false;btn.textContent="Отправить"}
 }
+async function decide(id,yes){
+  try{
+    if(yes){const r=await db.functions.invoke("send",{body:{kind:"approve",notification_id:id}});
+      if(r.error){let m=r.error.message;try{m=(await r.error.context.json()).error||m}catch(_){}throw new Error(m)}}
+    else{const r=await db.from("notifications").update({status:"rejected"}).eq("id",id);if(r.error)throw r.error}
+  }catch(e){alert("Ошибка: "+e.message)}
+  await load();render();
+}
 function renderExtra(){
+  const P=NT.filter(x=>x.raw==="awaiting_approval");
+  document.querySelector('.nav button[onclick*="notices"]').textContent="🔔 Уведомления"+(P.length?" ("+P.length+")":"");
+  document.getElementById("pendingBox").innerHTML=P.length?`<div class="card" style="margin-bottom:16px"><div class="section-head"><h2>Ждут Вашего одобрения</h2></div><div class="notice">Напоминания об оплате не уходят ученикам сами: отправьте или отклоните каждое.</div>${P.map(x=>`<div style="margin:14px 0"><b>${x.name}</b> · ${x.date}<div class="notice">${x.msg}</div><button class="btn small fern" onclick="decide('${x.id}',true)">Отправить</button> <button class="btn small" onclick="decide('${x.id}',false)">Отклонить</button></div>`).join("")}</div>`:"";
   document.getElementById("hwRows").innerHTML=HW.map(x=>`<tr><td>${x.date}</td><td>${x.name}</td><td>${x.text}${x.n?" 📎"+x.n:""}</td></tr>`).join("")||'<tr><td colspan="3">Пока нет заданий</td></tr>';
   document.getElementById("ntRows").innerHTML=NT.map(x=>`<tr><td>${x.date}</td><td>${x.name}</td><td>${x.msg}</td><td>${x.status}</td></tr>`).join("")||'<tr><td colspan="4">Пока нет уведомлений</td></tr>';
 }
