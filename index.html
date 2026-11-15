@@ -71,6 +71,7 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
       <div id="loginErr" class="notice" style="display:none"></div>
       <button class="btn" id="loginBtn" onclick="doLogin()">Войти</button>
       <button class="btn secondary" id="signupToggle" onclick="toggleSignup()">Я ученик — создать аккаунт</button>
+      <button class="btn secondary" onclick="resetPw()">Забыли пароль?</button>
     </div>
     <p class="login-note" id="loginNote"></p>
   </div>
@@ -84,6 +85,8 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
       <button onclick="showPage('students',this)">👩‍🎓 Ученики</button>
       <button onclick="showPage('payments',this)">💳 Оплаты</button>
       <button onclick="showPage('lessons',this)">📅 Занятия</button>
+      <button onclick="showPage('homework',this)">📚 Домашки</button>
+      <button onclick="showPage('notices',this)">🔔 Уведомления</button>
       <button onclick="showPage('settings',this)">⚙️ Настройки</button>
     </nav>
   </aside>
@@ -129,11 +132,18 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
 
     <section id="lessons" class="page">
       <div class="card">
-        <div class="section-head"><h2>Расписание и занятия</h2><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="genBtn" style="display:none" onclick="genLessons()">Создать занятия на 2 недели</button><button class="btn" onclick="openSchedule()">+ Настроить расписание</button></span></div>
-        <div class="notice">Расписание хранится отдельно у каждого ученика: день недели, время, часовой пояс и длительность. Позже эти данные будут синхронизироваться с календарём и Telegram-ботом.</div>
+        <div class="section-head"><h2>Расписание и занятия</h2><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn secondary" id="genBtn" style="display:none" onclick="genLessons()">Создать занятия на 2 недели</button><button class="btn secondary" onclick="openAddLesson()">+ Разовое занятие</button><button class="btn" onclick="openSchedule()">+ Настроить расписание</button></span></div>
+        <div class="notice">У каждого ученика может быть несколько занятий в неделю. Занятия создаются автоматически каждую ночь; кнопки справа позволяют провести, перенести или отменить занятие.</div>
         <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Время</th><th>Стоимость</th><th>Статус</th><th></th></tr></thead><tbody id="lessonRows"></tbody></table>
       </div>
     </section>
+
+    <section id="homework" class="page"><div class="card">
+      <div class="section-head"><h2>Домашние задания</h2><button class="btn" onclick="openHomework()">+ Отправить задание</button></div>
+      <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Задание</th></tr></thead><tbody id="hwRows"></tbody></table></div></section>
+    <section id="notices" class="page"><div class="card">
+      <div class="section-head"><h2>Уведомления ученикам</h2></div>
+      <table class="table"><thead><tr><th>Дата</th><th>Ученик</th><th>Сообщение</th><th>Статус</th></tr></thead><tbody id="ntRows"></tbody></table></div></section>
 
     <section id="settings" class="page">
       <div class="card">
@@ -148,7 +158,7 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
           <div class="notice">Можно использовать {имя}, {дата} и {время}: бот подставит их сам. К ученикам обращайтесь на «Вы».</div>
           <div id="tplFields" class="form"></div><div id="tplMsg" class="notice" style="display:none"></div>
           <button class="btn" onclick="saveTpl()">Сохранить тексты</button></div>
-          <button class="btn secondary" onclick="logout()">Выйти из демо</button>
+          <button class="btn secondary" onclick="logout()">Выйти</button>
         </div>
       </div>
     </section>
@@ -183,61 +193,51 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
 */
 
 /* ПОДКЛЮЧЕНИЕ К SUPABASE. Вставьте Project URL и ключ "anon public" (он безопасен для браузера).
-   Пока поля пустые — работает демо без сохранения. service_role и токен бота сюда НЕЛЬЗЯ. */
+   service_role и токен бота сюда НЕЛЬЗЯ. */
 const CFG={url:"https://gyzjeclzvekamnavigad.supabase.co",anonKey:"sb_publishable_O53c0vHXFxfbrFkwUwHj7w_ntWzAaSu"};
-const live=!!(CFG.url&&CFG.anonKey&&window.supabase);
-const db=live?supabase.createClient(CFG.url,CFG.anonKey):null;
+const live=true;
+if(!window.supabase){document.body.innerHTML='<p style="padding:40px;font-family:sans-serif">Не удалось загрузить сайт. Проверьте интернет и обновите страницу.</p>';throw new Error("supabase-js")}
+const db=supabase.createClient(CFG.url,CFG.anonKey);
 
 let settings = {
   currency: localStorage.getItem("sonika_currency") || "BYN",
   teacherTimezone: localStorage.getItem("sonika_timezone") || "Europe/Minsk"
 };
 
-let students = [
- {id:"st_anna",name:"Анна",telegram:"@anna_example",price:35,balance:105,timezone:"Europe/Minsk",duration:60,
-  schedule:[{day:1,time:"18:00"}],status:"green",next:"Пн · 18:00",telegramChatId:null,calendarEventId:null},
- {id:"st_maria",name:"Мария",telegram:"@maria_example",price:40,balance:40,timezone:"Europe/Moscow",duration:60,
-  schedule:[{day:3,time:"19:00"}],status:"yellow",next:"Ср · 19:00",telegramChatId:null,calendarEventId:null},
- {id:"st_katya",name:"Катя",telegram:"@katya_example",price:35,balance:0,timezone:"Europe/Minsk",duration:60,
-  schedule:[{day:5,time:"17:00"}],status:"red",next:"Пт · 17:00",telegramChatId:null,calendarEventId:null},
- {id:"st_liza",name:"Лиза",telegram:"@liza_example",price:35,balance:70,timezone:"Europe/Minsk",duration:60,
-  schedule:[{day:6,time:"12:00"}],status:"green",next:"Сб · 12:00",telegramChatId:null,calendarEventId:null}
-];
-
-let payments = [
- {date:"14.11.2026",name:"Анна",studentId:"st_anna",amount:105,note:"3 занятия вперёд"},
- {date:"13.11.2026",name:"Лиза",studentId:"st_liza",amount:70,note:"2 занятия"},
- {date:"10.11.2026",name:"Мария",studentId:"st_maria",amount:80,note:"2 занятия"}
-];
-
-let lessons = [
- {date:"16.11.2026",name:"Анна",studentId:"st_anna",time:"18:00",price:35,status:"Запланировано"},
- {date:"18.11.2026",name:"Мария",studentId:"st_maria",time:"19:00",price:40,status:"Запланировано"},
- {date:"20.11.2026",name:"Катя",studentId:"st_katya",time:"17:00",price:35,status:"Нужна оплата"}
-];
-
-if(live){students=[];payments=[];lessons=[]}
+let students=[],payments=[],lessons=[],NT=[],HW=[];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const DN=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
-const fail=e=>{const m=document.getElementById("modalContent");let n=document.getElementById("modalErr");if(!n){n=document.createElement("div");n.id="modalErr";n.className="notice";m.prepend(n)}n.textContent="Не сохранилось: "+e.message};
+const fail=e=>{const m=document.getElementById("modalContent");let n=document.getElementById("modalErr");if(!n){n=document.createElement("div");n.id="modalErr";n.className="notice";m.prepend(n)}n.textContent="Ошибка: "+e.message};
 
 async function load(){
   const r=await Promise.all([db.from("students").select("*").neq("status","archived").order("name"),db.from("schedules").select("*").eq("active",true),
-    db.from("payments").select("*").order("payment_date",{ascending:false}),db.from("lessons").select("*").eq("status","scheduled").order("scheduled_at")]);
+    db.from("payments").select("*").order("payment_date",{ascending:false}),db.from("lessons").select("*").eq("status","scheduled").order("scheduled_at"),
+    db.from("notifications").select("*").order("created_at",{ascending:false}).limit(50),db.from("homework").select("*").order("created_at",{ascending:false}).limit(50)]);
   const bad=r.find(x=>x.error);if(bad)throw bad.error;
-  const [st,sc,pa,le]=r.map(x=>x.data);
+  const [st,sc,pa,le,nt,hw]=r.map(x=>x.data);
   students=st.map(s=>{const sch=sc.filter(x=>x.student_id===s.id).map(x=>({day:x.weekday,time:x.start_time.slice(0,5)}));
     return{id:s.id,name:esc(s.name),telegram:esc(s.telegram_username||""),price:+s.price,balance:+s.balance,timezone:s.timezone,duration:s.duration,
-      schedule:sch,next:sch[0]?DN[sch[0].day]+" · "+sch[0].time:"—",telegramChatId:s.telegram_chat_id,linkCode:s.link_code}});
+      schedule:sch,next:sch.length?sch.map(x=>DN[x.day]+" · "+x.time).join(", "):"—",telegramChatId:s.telegram_chat_id,linkCode:s.link_code,notes:esc(s.notes||"")}});
   const nm=Object.fromEntries(students.map(s=>[s.id,s.name]));
+  const fd=x=>new Date(x).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  NT=nt.map(n=>({date:fd(n.created_at),name:nm[n.student_id]||"",msg:esc(n.message),status:({sent:"Отправлено",failed:"Не доставлено",pending:"Ожидает"})[n.status]||n.status}));
+  HW=hw.map(x=>({date:fd(x.created_at),name:nm[x.student_id]||"",text:esc(x.text||"Файлы"),n:(x.files||[]).length}));
   payments=pa.map(p=>({date:new Date(p.payment_date).toLocaleDateString("ru-RU"),name:nm[p.student_id]||"",studentId:p.student_id,amount:+p.amount,note:esc(p.comment||"")}));
-  lessons=le.filter(l=>nm[l.student_id]).map(l=>{const d=new Date(l.scheduled_at);return{id:l.id,date:d.toLocaleDateString("ru-RU"),name:nm[l.student_id],studentId:l.student_id,
+  lessons=le.filter(l=>nm[l.student_id]).map(l=>{const d=new Date(l.scheduled_at);return{id:l.id,iso:l.scheduled_at,date:d.toLocaleDateString("ru-RU"),name:nm[l.student_id],studentId:l.student_id,
     time:d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}),price:+l.price,status:l.confirmation==="confirmed"?"Подтверждено":l.confirmation==="declined"?"Не придёт":"Запланировано"}});
 }
-async function setSchedule(sid,day,time,tz,duration){
-  await db.from("schedules").delete().eq("student_id",sid);
-  const a=await db.from("schedules").insert({student_id:sid,weekday:day,start_time:time,duration,timezone:tz});if(a.error)throw a.error;
+const FULL=["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"];
+const slotRow=(d,t)=>`<div class="slot" style="display:flex;gap:8px;margin-bottom:8px"><select class="slDay">${FULL.map((n,i)=>`<option value="${i}" ${+d===i?"selected":""}>${n}</option>`).join("")}</select><input class="slTime" type="time" value="${t}"><button class="btn secondary" type="button" onclick="this.parentNode.remove()">✕</button></div>`;
+const readSlots=()=>[...document.querySelectorAll("#slots .slot")].map(r=>({day:+r.querySelector(".slDay").value,time:r.querySelector(".slTime").value})).filter(x=>x.time);
+const addSlot=()=>document.getElementById("slots").insertAdjacentHTML("beforeend",slotRow(1,"18:00"));
+const fillSlots=s=>{document.getElementById("slots").innerHTML=(s.schedule.length?s.schedule:[{day:1,time:"18:00"}]).map(x=>slotRow(x.day,x.time)).join("")};
+async function setSchedule(sid,slots,tz,duration){
+  const k=a=>JSON.stringify([...a].sort((x,y)=>x.day-y.day||x.time.localeCompare(y.time))),old=students.find(x=>x.id===sid);
+  const changed=!old||k(old.schedule)!==k(slots)||old.timezone!==tz;
+  const d=await db.from("schedules").delete().eq("student_id",sid);if(d.error)throw d.error;
+  if(slots.length){const a=await db.from("schedules").insert(slots.map(x=>({student_id:sid,weekday:x.day,start_time:x.time,duration,timezone:tz})));if(a.error)throw a.error}
   const b=await db.from("students").update({timezone:tz}).eq("id",sid);if(b.error)throw b.error;
+  if(changed){await db.from("lessons").delete().eq("student_id",sid).eq("status","scheduled").gt("scheduled_at",new Date().toISOString());await db.rpc("generate_lessons",{days_ahead:14})}
 }
 function openMessage(id){
   const s=students.find(x=>x.id===id);
@@ -273,6 +273,70 @@ async function saveTpl(){
   const r=await db.from("message_templates").upsert(TPL.map(([k])=>({key:k,body:document.getElementById("tpl_"+k).value.trim()})),{onConflict:"teacher_id,key"});
   n.textContent=r.error?"Не сохранилось: "+r.error.message:"Тексты сохранены ✅";
 }
+const loc=d=>{const p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`};
+const when=(iso,tz)=>{const d=new Date(iso);return d.toLocaleDateString("ru-RU",{day:"numeric",month:"long",timeZone:tz})+" в "+d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit",timeZone:tz})};
+async function tell(sid,text){const s=students.find(x=>x.id===sid);if(!s?.telegramChatId)return;await db.functions.invoke("send",{body:{student_id:sid,kind:"custom",text}})}
+const TA='style="width:100%;padding:13px;border-radius:14px;border:1px solid #D6D6D1;font:inherit"';
+function modal(title,html){document.getElementById("modalTitle").textContent=title;document.getElementById("modalContent").innerHTML=html;document.getElementById("modal").classList.add("show")}
+const cancelBtn='<button class="btn secondary" onclick="closeModal()">Отмена</button>';
+
+function moveLesson(id){const l=lessons.find(x=>x.id===id);
+  modal("Перенести занятие",`<div class="form"><div class="notice">${l.name}</div><div><label>Новая дата и время (по Вашему времени)</label><input id="mvDate" type="datetime-local" value="${loc(new Date(l.iso))}"></div>
+  <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mvNotify" checked style="width:auto"> Сообщить ученику в Telegram</label>
+  <div class="form-actions">${cancelBtn}<button class="btn" onclick="saveMove('${id}')">Перенести</button></div></div>`)}
+async function saveMove(id){const l=lessons.find(x=>x.id===id),v=document.getElementById("mvDate").value;if(!v)return;
+  try{const iso=new Date(v).toISOString(),r=await db.from("lessons").update({scheduled_at:iso,confirmation:"pending"}).eq("id",id);if(r.error)throw r.error;
+    if(document.getElementById("mvNotify").checked){const s=students.find(x=>x.id===l.studentId);await tell(l.studentId,"Здравствуйте! Ваше занятие перенесено на "+when(iso,s.timezone)+".")}
+    await load();closeModal();render()}catch(e){fail(e)}}
+async function cancelLesson(id){const l=lessons.find(x=>x.id===id);if(!confirm("Отменить занятие? Деньги с баланса не списываются."))return;
+  try{const r=await db.from("lessons").update({status:"cancelled"}).eq("id",id);if(r.error)throw r.error;
+    const s=students.find(x=>x.id===l.studentId);if(s?.telegramChatId&&confirm("Сообщить ученику об отмене в Telegram?"))await tell(l.studentId,"Здравствуйте! Ваше занятие "+when(l.iso,s.timezone)+" отменено.");
+    await load();render()}catch(e){alert("Ошибка: "+e.message)}}
+function openAddLesson(){modal("Разовое занятие",`<div class="form"><div><label>Ученик</label><select id="alStudent">${students.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
+  <div><label>Дата и время (по Вашему времени)</label><input id="alDate" type="datetime-local" value="${loc(new Date())}"></div>
+  <div class="form-actions">${cancelBtn}<button class="btn" onclick="saveAddLesson()">Добавить</button></div></div>`)}
+async function saveAddLesson(){const s=students.find(x=>x.id===document.getElementById("alStudent").value),v=document.getElementById("alDate").value;if(!s||!v)return;
+  try{const r=await db.from("lessons").insert({student_id:s.id,scheduled_at:new Date(v).toISOString(),duration:s.duration,price:s.price});if(r.error)throw r.error;await load();closeModal();render()}catch(e){fail(e)}}
+
+function openHomework(){
+  modal("Отправить домашнее задание",`<div class="form"><div><label>Кому</label><div id="hwWho" style="max-height:170px;overflow:auto">${students.map(s=>`<label style="display:flex;gap:8px;align-items:center;margin:6px 0"><input type="checkbox" style="width:auto" value="${s.id}" ${s.telegramChatId?"":"disabled"}> ${s.name}${s.telegramChatId?"":" (нет Telegram)"}</label>`).join("")}</div></div>
+  <div><label>Текст задания</label><textarea id="hwText" rows="4" ${TA}></textarea></div>
+  <div><label>Картинки и файлы</label><input id="hwFiles" type="file" multiple accept="image/*,.pdf,.doc,.docx"></div>
+  <div class="notice">Фото уменьшаются автоматически. Для файлов (PDF, Word) лимит около 3 МБ.</div>
+  <div class="form-actions">${cancelBtn}<button class="btn" id="hwBtn" onclick="sendHomework()">Отправить</button></div></div>`)}
+const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result.split(",")[1]);r.onerror=no;r.readAsDataURL(f)});
+async function prepFile(f){
+  if(f.type.startsWith("image/")&&f.type!=="image/gif"){
+    const bm=await createImageBitmap(f),k=Math.min(1,1600/Math.max(bm.width,bm.height)),c=document.createElement("canvas");
+    c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);c.getContext("2d").drawImage(bm,0,0,c.width,c.height);
+    const blob=await new Promise(r=>c.toBlob(r,"image/jpeg",0.82));
+    return{name:f.name.replace(/\.\w+$/,"")+".jpg",type:"image/jpeg",data:await b64(blob)};
+  }
+  if(f.size>3e6)throw new Error("Файл «"+f.name+"» больше 3 МБ.");
+  return{name:f.name,type:f.type||"application/octet-stream",data:await b64(f)};
+}
+async function sendHomework(){
+  const btn=document.getElementById("hwBtn"),ids=[...document.querySelectorAll("#hwWho input:checked")].map(i=>i.value);
+  const text=document.getElementById("hwText").value.trim(),fs=[...document.getElementById("hwFiles").files];
+  if(!ids.length)return fail(new Error("Выберите хотя бы одного ученика."));
+  if(!text&&!fs.length)return fail(new Error("Добавьте текст или файл."));
+  btn.disabled=true;btn.textContent="Отправка…";
+  try{const files=[];for(const f of fs)files.push(await prepFile(f));
+    if(files.reduce((a,f)=>a+f.data.length,0)>5.5e6)throw new Error("Слишком много файлов. Отправьте частями.");
+    const r=await db.functions.invoke("send",{body:{student_ids:ids,kind:"homework",text,files}});
+    if(r.error){let m=r.error.message;try{m=(await r.error.context.json()).error||m}catch(_){}throw new Error(m)}
+    await load();render();closeModal();alert("Отправлено: "+r.data.sent+(r.data.skipped?.length?". Не доставлено: "+r.data.skipped.join(", "):""))}
+  catch(e){fail(e);btn.disabled=false;btn.textContent="Отправить"}
+}
+function renderExtra(){
+  document.getElementById("hwRows").innerHTML=HW.map(x=>`<tr><td>${x.date}</td><td>${x.name}</td><td>${x.text}${x.n?" 📎"+x.n:""}</td></tr>`).join("")||'<tr><td colspan="3">Пока нет заданий</td></tr>';
+  document.getElementById("ntRows").innerHTML=NT.map(x=>`<tr><td>${x.date}</td><td>${x.name}</td><td>${x.msg}</td><td>${x.status}</td></tr>`).join("")||'<tr><td colspan="4">Пока нет уведомлений</td></tr>';
+}
+async function resetPw(){const e=document.getElementById("loginField").value.trim();if(!e)return setErr("Введите email и нажмите «Забыли пароль?» ещё раз.");
+  const r=await db.auth.resetPasswordForEmail(e,{redirectTo:location.href.split("#")[0]});setErr(r.error?"Не получилось отправить письмо.":"Мы отправили письмо со ссылкой для нового пароля.")}
+function openNewPw(){modal("Новый пароль",`<div class="form"><div><label>Новый пароль (минимум 8 символов)</label><input id="newPw" type="password"></div><div class="form-actions"><button class="btn" onclick="saveNewPw()">Сохранить</button></div></div>`)}
+async function saveNewPw(){const v=document.getElementById("newPw").value;if(v.length<8)return fail(new Error("Минимум 8 символов."));
+  const r=await db.auth.updateUser({password:v});if(r.error)return fail(r.error);closeModal();alert("Пароль изменён ✅")}
 async function genLessons(){try{const r=await db.rpc("generate_lessons",{days_ahead:14});if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
 async function doneLesson(id){try{const r=await db.from("lessons").update({status:"completed"}).eq("id",id);if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
 
@@ -281,7 +345,6 @@ function toggleSignup(){const r=document.getElementById("codeRow"),on=r.style.di
   document.getElementById("loginBtn").textContent=on?"Создать аккаунт":"Войти";
   document.getElementById("signupToggle").textContent=on?"У меня уже есть аккаунт":"Я ученик — создать аккаунт";setErr("")}
 async function doLogin(){
-  if(!live){demoLogin();return}
   const email=document.getElementById("loginField").value.trim(),pw=document.getElementById("password").value;
   const reg=document.getElementById("codeRow").style.display!=="none",btn=document.getElementById("loginBtn"),label=btn.textContent;
   btn.disabled=true;btn.textContent="Загрузка…";setErr("");
@@ -304,9 +367,9 @@ async function enter(){
 }
 async function loadPortal(){
   const r=await Promise.all([db.from("students").select("*").maybeSingle(),db.from("payments").select("*").order("payment_date",{ascending:false}),
-    db.from("lessons").select("*").order("scheduled_at"),db.from("notifications").select("*").order("created_at",{ascending:false}).limit(10),db.from("schedules").select("*").eq("active",true)]);
+    db.from("lessons").select("*").order("scheduled_at"),db.from("notifications").select("*").order("created_at",{ascending:false}).limit(10),db.from("schedules").select("*").eq("active",true),db.from("homework").select("*").order("created_at",{ascending:false}).limit(10)]);
   const bad=r.find(x=>x.error);if(bad)throw bad.error;
-  const [s,pa,le,nt,sc]=r.map(x=>x.data),el=document.getElementById("portal");
+  const [s,pa,le,nt,sc,hw]=r.map(x=>x.data),el=document.getElementById("portal");
   if(!s){el.innerHTML='<div class="portal"><div class="card">Аккаунт пока не привязан к ученику. Попросите у преподавателя код и создайте аккаунт заново.</div><br><button class="btn secondary" onclick="logout()">Выйти</button></div>';return}
   settings.currency=s.currency;
   const d=x=>new Date(x).toLocaleDateString("ru-RU",{day:"numeric",month:"long"}),t=x=>new Date(x).toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});
@@ -320,6 +383,7 @@ async function loadPortal(){
       <div class="info-box">Следующее занятие<b>${next?d(next.scheduled_at)+" · "+t(next.scheduled_at):"Пока не назначено"}</b></div>
       <div class="info-box">Ваше расписание<b>${sc.length?sc.map(x=>DN[x.weekday]+" · "+x.start_time.slice(0,5)+", "+x.duration+" мин").join("<br>"):"Пока не задано"}</b></div></div>
     <div class="card" style="margin-top:16px"><div class="section-head"><h2>История</h2></div><div class="activity">${hist.length?hist.map(x=>`<div class="activity-item"><span>${d(x.d)} — ${x.t}</span><b>${x.v>0?"+":"−"}${money(Math.abs(x.v))}</b></div>`).join(""):"Пока нет записей"}</div></div>
+    <div class="card" style="margin-top:16px"><div class="section-head"><h2>Домашние задания</h2></div><div class="activity">${hw.length?hw.map(x=>`<div class="activity-item"><span>${d(x.created_at)} — ${esc(x.text||"файлы")}${x.files?.length?" 📎":""}</span></div>`).join(""):"Пока нет заданий"}</div></div>
     <div class="card" style="margin-top:16px"><div class="section-head"><h2>Уведомления</h2></div><div class="activity">${nt.length?nt.map(n=>`<div class="activity-item"><span>${esc(n.message)}</span></div>`).join(""):"Пока нет уведомлений"}</div></div>
     <br><button class="btn secondary" onclick="logout()">Выйти</button></div>`;
 }
@@ -359,7 +423,7 @@ function render(){
 
   document.getElementById("lessonRows").innerHTML=lessons.map(l=>`
     <tr><td>${l.date}</td><td>${l.name}</td><td>${l.time}</td><td>${money(l.price)}</td>
-    <td><span class="status ${["Оплачено","Подтверждено"].includes(l.status)?"green":["Нужна оплата","Не придёт"].includes(l.status)?"red":"yellow"}">${l.status}</span></td><td>${l.id?`<button class="btn small fern" onclick="doneLesson('${l.id}')">Проведено</button>`:""}</td></tr>`).join("");
+    <td><span class="status ${["Оплачено","Подтверждено"].includes(l.status)?"green":["Нужна оплата","Не придёт"].includes(l.status)?"red":"yellow"}">${l.status}</span></td><td>${l.id?`<button class="btn small fern" onclick="doneLesson('${l.id}')">Проведено</button><button class="btn small" onclick="moveLesson('${l.id}')">Перенести</button><button class="btn small" onclick="cancelLesson('${l.id}')">Отменить</button>`:""}</td></tr>`).join("");
 
   document.getElementById("upcoming").innerHTML=lessons.slice(0,4).map(l=>`
     <div class="activity-item"><span>📅 ${l.name}<br><small>${l.date} · ${l.time}</small></span><b>${money(l.price)}</b></div>`).join("");
@@ -368,20 +432,19 @@ function render(){
   document.getElementById("teacherTz").value=settings.teacherTimezone;
 }
 
-function demoLogin(){document.getElementById("login").style.display="none";document.getElementById("app").style.display="flex";render()}
 async function logout(){if(live)await db.auth.signOut();document.getElementById("app").style.display="none";document.getElementById("portal").style.display="none";document.getElementById("login").style.display="grid"}
 
 function showPage(id,btn){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   document.getElementById(id).classList.add("active");
   document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));btn.classList.add("active");
-  document.getElementById("pageTitle").textContent=({dashboard:"Главная",students:"Ученики",payments:"Оплаты",lessons:"Расписание и занятия",settings:"Настройки"})[id];
+  document.getElementById("pageTitle").textContent=({dashboard:"Главная",students:"Ученики",payments:"Оплаты",lessons:"Расписание и занятия",homework:"Домашние задания",notices:"Уведомления",settings:"Настройки"})[id];
 }
 
 function openStudent(id=null){
   const s=id?students.find(x=>x.id===id):null;
   document.getElementById("modalTitle").textContent=s?"Изменить ученика":"Добавить ученика";
-  const schedule = s?.schedule?.[0] || {day:1,time:"18:00"};
+  const slotsHtml=(s?.schedule?.length?s.schedule:[{day:1,time:"18:00"}]).map(x=>slotRow(x.day,x.time)).join("");
   document.getElementById("modalContent").innerHTML=`
     <div class="form">
       <div class="form-grid">
@@ -394,16 +457,12 @@ function openStudent(id=null){
           ${["Europe/Minsk","Europe/Moscow","Europe/Berlin"].map(t=>`<option ${t===(s?.timezone||settings.teacherTimezone)?"selected":""}>${t}</option>`).join("")}
         </select></div>
       </div>
-      <div class="form-grid">
-        <div><label>День недели</label><select id="stDay">
-          ${["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"].map((d,i)=>`<option value="${i}" ${Number(schedule.day)===i?"selected":""}>${d}</option>`).join("")}
-        </select></div>
-        <div><label>Время занятия</label><input id="stTime" type="time" value="${schedule.time||"18:00"}"></div>
-      </div>
+      <div><label>Дни и время занятий (можно несколько)</label><div id="slots">${slotsHtml}</div><button class="btn secondary" type="button" onclick="addSlot()">+ Ещё день</button></div>
       <div class="form-grid">
         <div><label>Длительность (минут)</label><input id="stDuration" type="number" value="${s?.duration||60}"></div>
         <div><label>Баланс (${settings.currency})</label><input id="stBalance" type="number" value="${s?.balance||0}"></div>
       </div>
+      <div><label>Заметки об ученике</label><textarea id="stNotes" rows="3" style="width:100%;padding:13px;border-radius:14px;border:1px solid #D6D6D1;font:inherit">${s?.notes||""}</textarea></div>
       <div class="notice">${live&&s?`Telegram: <b>${s.telegramChatId?"подключён ✅":"не подключён"}</b>. Код ученика для аккаунта и бота: <b>${s.linkCode}</b>`:"Код для подключения аккаунта и Telegram появится после сохранения ученика."}</div>
       <div class="form-actions">${live&&s?`<button class="btn secondary" onclick="openMessage('${id}')">Написать в Telegram</button><button class="btn secondary" style="margin-right:auto" onclick="archiveStudent('${id}')">Архивировать</button>`:""}<button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveStudent('${id||""}')">Сохранить</button></div>
     </div>`;
@@ -415,27 +474,17 @@ async function saveStudent(id){
   const telegram=document.getElementById("stTelegram").value.trim();
   const price=Number(document.getElementById("stPrice").value)||0;
   const timezone=document.getElementById("stTz").value;
-  const day=Number(document.getElementById("stDay").value);
-  const time=document.getElementById("stTime").value;
+  const slots=readSlots();const notes=document.getElementById("stNotes").value.trim();
   const duration=Number(document.getElementById("stDuration").value)||60;
   const balance=Number(document.getElementById("stBalance").value)||0;
   if(live){try{
-    const row={name,telegram_username:telegram,price,timezone,duration};let sid=id;
+    const row={name,telegram_username:telegram,price,timezone,duration,notes};let sid=id;
     if(id){const old=students.find(x=>x.id===id),diff=Math.round((balance-old.balance)*100)/100;
       const r=await db.from("students").update(row).eq("id",id);if(r.error)throw r.error;
       if(diff){const q=await db.from("payments").insert({student_id:id,amount:diff,comment:"Корректировка баланса"});if(q.error)throw q.error}}
     else{const r=await db.from("students").insert({...row,currency:settings.currency}).select().single();if(r.error)throw r.error;sid=r.data.id;
       if(balance>0){const p=await db.from("payments").insert({student_id:sid,amount:balance,comment:"Начальный баланс"});if(p.error)throw p.error}}
-    await setSchedule(sid,day,time,timezone,duration);await load();closeModal();render();return}catch(e){fail(e);return}}
-  const dayNames=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
-  if(id){
-    const s=students.find(x=>x.id===id);
-    Object.assign(s,{name,telegram,price,timezone,duration,balance,schedule:[{day,time}],next:`${dayNames[day]} · ${time}`});
-  }else{
-    const newId="st_"+Date.now();
-    students.push({id:newId,name,telegram,price,timezone,duration,balance,schedule:[{day,time}],next:`${dayNames[day]} · ${time}`,status:statusFor({balance,price}),telegramChatId:null,calendarEventId:null});
-  }
-  closeModal();render();
+    await setSchedule(sid,slots,timezone,duration);await load();closeModal();render();return}catch(e){fail(e);return}}
 }
 
 function editStudent(id){openStudent(id)}
@@ -462,31 +511,26 @@ async function addPayment(){
 }
 
 function openSchedule(){
-  document.getElementById("modalTitle").textContent="Настроить расписание";
+  document.getElementById("modalTitle").textContent="Расписание ученика";
   document.getElementById("modalContent").innerHTML=`<div class="form">
-    <div class="notice">Выберите ученика и задайте регулярное время. В следующей версии эта запись будет создавать/обновлять событие в Google Calendar или другом календаре через защищённый backend.</div>
-    <div><label>Ученик</label><select id="schStudent">${students.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
-    <div class="form-grid"><div><label>День недели</label><select id="schDay">${["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"].map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select></div><div><label>Время</label><input id="schTime" type="time" value="18:00"></div></div>
-    <div><label>Часовой пояс</label><select id="schTz">${["Europe/Minsk","Europe/Moscow","Europe/Berlin"].map(t=>`<option>${t}</option>`).join("")}</select></div>
-    <div class="form-actions"><button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveSchedule()">Сохранить расписание</button></div>
-  </div>`;
+    <div><label>Ученик</label><select id="schStudent" onchange="fillSlots(students.find(x=>x.id===this.value))">${students.map(s=>`<option value="${s.id}">${s.name}</option>`).join("")}</select></div>
+    <div><label>Дни и время занятий (можно несколько дней в неделю)</label><div id="slots"></div><button class="btn secondary" type="button" onclick="addSlot()">+ Ещё день</button></div>
+    <div class="notice">После сохранения будущие занятия пересоздаются по новому расписанию.</div>
+    <div class="form-actions"><button class="btn secondary" onclick="closeModal()">Отмена</button><button class="btn" onclick="saveSchedule()">Сохранить расписание</button></div></div>`;
+  if(students[0])fillSlots(students[0]);
   document.getElementById("modal").classList.add("show");
 }
-
 async function saveSchedule(){
-  const s=students.find(x=>x.id===document.getElementById("schStudent").value);
-  const day=Number(document.getElementById("schDay").value),time=document.getElementById("schTime").value,tz=document.getElementById("schTz").value;
-  if(live&&s){try{await setSchedule(s.id,day,time,tz,s.duration);await load();closeModal();render();return}catch(e){fail(e);return}}
-  if(s){s.schedule=[{day,time}];s.timezone=tz;const days=["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];s.next=`${days[day]} · ${time}`}
-  closeModal();render();
+  const s=students.find(x=>x.id===document.getElementById("schStudent").value);if(!s)return;
+  try{await setSchedule(s.id,readSlots(),s.timezone,s.duration);await load();closeModal();render()}catch(e){fail(e)}
 }
 
 function closeModal(){document.getElementById("modal").classList.remove("show")}
 
 function setCurrency(value){settings.currency=value;localStorage.setItem("sonika_currency",value);render()}
-document.getElementById("loginNote").textContent=live?"":"Демо-режим: Supabase не подключён, изменения не сохраняются. Ключи вставляются в начале скрипта (CFG).";
-if(live)db.auth.getSession().then(({data})=>{if(data.session)enter().catch(e=>setErr(e.message))});
-else document.getElementById("loginBtn").textContent="Войти в демо";
+const baseRender=render;render=()=>{baseRender();renderExtra()};
+db.auth.onAuthStateChange(ev=>{if(ev==="PASSWORD_RECOVERY")openNewPw()});
+db.auth.getSession().then(({data})=>{if(data.session)enter().catch(e=>setErr(e.message))});
 </script>
 </body>
 </html>
