@@ -144,6 +144,10 @@ h1{margin:0;font-size:30px}.subtitle{color:var(--muted);margin-top:5px}
             <div><label>Часовой пояс преподавателя</label><select id="teacherTz"><option>Europe/Minsk</option><option>Europe/Moscow</option><option>Europe/Berlin</option></select></div>
           </div>
           <div class="notice">Важно: токен Telegram-бота и ключи Supabase не будут храниться в HTML-коде. Для будущей интеграции будет отдельный защищённый серверный слой / Edge Functions.</div>
+          <div id="tplBox" style="display:none"><h2>Тексты напоминаний</h2>
+          <div class="notice">Можно использовать {имя}, {дата} и {время}: бот подставит их сам. К ученикам обращайтесь на «Вы».</div>
+          <div id="tplFields" class="form"></div><div id="tplMsg" class="notice" style="display:none"></div>
+          <button class="btn" onclick="saveTpl()">Сохранить тексты</button></div>
           <button class="btn secondary" onclick="logout()">Выйти из демо</button>
         </div>
       </div>
@@ -228,7 +232,7 @@ async function load(){
   const nm=Object.fromEntries(students.map(s=>[s.id,s.name]));
   payments=pa.map(p=>({date:new Date(p.payment_date).toLocaleDateString("ru-RU"),name:nm[p.student_id]||"",studentId:p.student_id,amount:+p.amount,note:esc(p.comment||"")}));
   lessons=le.filter(l=>nm[l.student_id]).map(l=>{const d=new Date(l.scheduled_at);return{id:l.id,date:d.toLocaleDateString("ru-RU"),name:nm[l.student_id],studentId:l.student_id,
-    time:d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}),price:+l.price,status:"Запланировано"}});
+    time:d.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"}),price:+l.price,status:l.confirmation==="confirmed"?"Подтверждено":l.confirmation==="declined"?"Не придёт":"Запланировано"}});
 }
 async function setSchedule(sid,day,time,tz,duration){
   await db.from("schedules").delete().eq("student_id",sid);
@@ -253,6 +257,20 @@ async function sendMsg(id){
   catch(e){fail(e);b.disabled=false;b.textContent="Отправить"}
 }
 async function archiveStudent(id){if(!confirm("Архивировать ученика? Он исчезнет из списка, история сохранится."))return;try{const r=await db.from("students").update({status:"archived"}).eq("id",id);if(r.error)throw r.error;await load();closeModal();render()}catch(e){fail(e)}}
+const TPL=[["lesson_reminder","Напоминание о занятии (приходит за сутки, с кнопками подтверждения)","Здравствуйте! Напоминаем, что {дата} у Вас занятие в {время}."],
+  ["balance_low","Остался один оплаченный урок","Здравствуйте! У Вас осталось одно оплаченное занятие. Пожалуйста, пополните баланс перед следующим занятием."],
+  ["balance_empty","Баланс закончился","Здравствуйте! Ваш оплаченный баланс закончился. Пожалуйста, внесите оплату перед следующим занятием."],
+  ["payment_request","Просьба об оплате (кнопка «Написать в Telegram»)","Здравствуйте! Пожалуйста, пополните баланс перед следующим занятием."]];
+async function loadTpl(){
+  const r=await db.from("message_templates").select("key,body"),m=Object.fromEntries((r.data||[]).map(x=>[x.key,x.body]));
+  document.getElementById("tplFields").innerHTML=TPL.map(([k,t,d])=>`<div><label>${t}</label><textarea id="tpl_${k}" rows="3" style="width:100%;padding:13px;border-radius:14px;border:1px solid #D6D6D1;font:inherit">${esc(m[k]||d)}</textarea></div>`).join("");
+  document.getElementById("tplBox").style.display="block";
+}
+async function saveTpl(){
+  const n=document.getElementById("tplMsg");n.style.display="block";
+  const r=await db.from("message_templates").upsert(TPL.map(([k])=>({key:k,body:document.getElementById("tpl_"+k).value.trim()})),{onConflict:"teacher_id,key"});
+  n.textContent=r.error?"Не сохранилось: "+r.error.message:"Тексты сохранены ✅";
+}
 async function genLessons(){try{const r=await db.rpc("generate_lessons",{days_ahead:14});if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
 async function doneLesson(id){try{const r=await db.from("lessons").update({status:"completed"}).eq("id",id);if(r.error)throw r.error;await load();render()}catch(e){alert("Ошибка: "+e.message)}}
 
@@ -277,7 +295,7 @@ async function doLogin(){
 async function enter(){
   const {data:{user}}=await db.auth.getUser();if(!user)return;
   const {data:p,error}=await db.from("profiles").select("role,name").eq("id",user.id).single();if(error)throw error;
-  if(p.role==="teacher"){await load();render();document.getElementById("genBtn").style.display="";
+  if(p.role==="teacher"){await load();render();loadTpl().catch(()=>{});document.getElementById("genBtn").style.display="";
     document.querySelector(".profile b").textContent=p.name||"Преподаватель";document.getElementById("app").style.display="flex"}
   else{await loadPortal();document.getElementById("portal").style.display="block"}
   document.getElementById("login").style.display="none";
@@ -339,7 +357,7 @@ function render(){
 
   document.getElementById("lessonRows").innerHTML=lessons.map(l=>`
     <tr><td>${l.date}</td><td>${l.name}</td><td>${l.time}</td><td>${money(l.price)}</td>
-    <td><span class="status ${l.status==="Оплачено"?"green":l.status==="Нужна оплата"?"red":"yellow"}">${l.status}</span></td><td>${l.id?`<button class="btn small fern" onclick="doneLesson('${l.id}')">Проведено</button>`:""}</td></tr>`).join("");
+    <td><span class="status ${["Оплачено","Подтверждено"].includes(l.status)?"green":["Нужна оплата","Не придёт"].includes(l.status)?"red":"yellow"}">${l.status}</span></td><td>${l.id?`<button class="btn small fern" onclick="doneLesson('${l.id}')">Проведено</button>`:""}</td></tr>`).join("");
 
   document.getElementById("upcoming").innerHTML=lessons.slice(0,4).map(l=>`
     <div class="activity-item"><span>📅 ${l.name}<br><small>${l.date} · ${l.time}</small></span><b>${money(l.price)}</b></div>`).join("");
